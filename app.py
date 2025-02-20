@@ -2,40 +2,83 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+
+print("hello")
 
 app = Flask(__name__)
 
 # ✅ Fix CORS to Allow Requests from React Frontend
-CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+CORS(app, supports_credentials=True, origins=["http://localhost:3000","http://127.0.0.1:3000"])
 
 # ✅ Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///budget.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = 'supersecretkey' #Change this for production
 
 db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+jwt = JWTManager(app)
 
-# ✅ Transaction Model
+# ✅ User Model for Authentication
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
+
+# ✅ Transaction Model (Now linked to a User)
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    type = db.Column(db.String(10), nullable=False)  # "income" or "expense"
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    type = db.Column(db.String(10), nullable=False)
     category = db.Column(db.String(50), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     description = db.Column(db.String(200))
     date = db.Column(db.Date, nullable=False)
+
 
 # ✅ Create the Database
 with app.app_context():
     db.create_all()
 
 # ✅ Handle Preflight Requests (OPTIONS)
-@app.route('/<path:path>', methods=['OPTIONS'])
-def options_request(path):
-    return '', 204
+# @app.route('/<path:path>', methods=['OPTIONS'])
+# def options_request(path):
+#     return '', 204
 
-# ✅ Get All Transactions (No Auth)
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.json
+    if User.query.filter_by(username=data['username']).first():
+        return jsonify({"error": "User already exists"}), 400
+
+    hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
+    new_user = User(username=data['username'], password=hashed_password)
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({"message": "User registered"}), 201
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    user = User.query.filter_by(username=data['username']).first()
+
+    if user and bcrypt.check_password_hash(user.password, data['password']):
+        access_token = create_access_token(identity=str(user.id))
+        return jsonify({"token": access_token}), 200
+
+    return jsonify({"message": "Invalid credentials"}), 401
+
+
+# ✅ Get All Transactions (Requires Auth)
 @app.route('/transactions', methods=['GET'])
+@jwt_required()
 def get_transactions():
-    transactions = Transaction.query.all()
+    user_id = get_jwt_identity()
+    print(f"Fetching transactions for user: {user_id}", flush=True)
+
+    transactions = Transaction.query.filter_by(user_id=user_id).all()
 
     return jsonify([
         {
@@ -49,43 +92,65 @@ def get_transactions():
         for t in transactions
     ])
 
-# ✅ Add a New Transaction (No Auth)
+# ✅ Add a New Transaction (Requires Auth)
 @app.route('/transactions', methods=['POST'])
+@jwt_required()
 def add_transaction():
-    data = request.json
+    print("add transaction")
+    user_id = get_jwt_identity()
+    data = request.json  # Read JSON data from request
 
-    # ✅ Debugging: Print received data
-    print("🔍 Received Data:", data)
+    # 🔥 Debugging: Print received data
+    print("🚀 Received Data:", data, flush=True)
 
-    # ✅ Validate Required Fields
-    required_fields = ['type', 'category', 'amount', 'date']
-    if not all(field in data for field in required_fields):
-        print("❌ Missing Fields:", [field for field in required_fields if field not in data])
-        return jsonify({"error": "Missing required fields"}), 422
+    # ✅ Ensure data exists
+    if not data or not isinstance(data, dict):
+        print("❌ ERROR: Invalid JSON received!", flush=True)
+        return jsonify({"error": "Invalid JSON format"}), 400
+
+    # ✅ Check required fields
+    required_fields = ["type", "category", "amount", "date"]
+    for field in required_fields:
+        if field not in data:
+            print(f"❌ ERROR: Missing field: {field}", flush=True)
+            return jsonify({"error": f"Missing field: {field}"}), 422
 
     try:
+        # ✅ Convert and validate data types
         new_transaction = Transaction(
-            type=str(data['type']),
-            category=str(data['category']),
-            amount=float(data['amount']),
-            description=str(data.get('description', '')),  # ✅ Ensure string
-            date=datetime.strptime(data['date'], '%Y-%m-%d')  # ✅ Ensure correct format
+            user_id=user_id,
+            type=str(data["type"]),  # ✅ Ensure string
+            category=str(data["category"]),  # ✅ Ensure string
+            amount=float(data["amount"]),  # ✅ Ensure float
+            description=str(data.get("description", "")),  # ✅ Ensure string
+            date=datetime.strptime(data["date"], "%Y-%m-%d")  # ✅ Ensure proper date format
         )
+
         db.session.add(new_transaction)
         db.session.commit()
+        print("✅ Transaction successfully added!", flush=True)
         return jsonify({"message": "Transaction added"}), 201
-    except ValueError:
+
+    except ValueError as e:
+        print("❌ ValueError:", str(e), flush=True)
         return jsonify({"error": "Invalid data format"}), 422
     except Exception as e:
+        print("❌ ERROR:", str(e), flush=True)
         return jsonify({"error": str(e)}), 500
 
-# ✅ Global CORS Fix
-@app.after_request
-def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    return response
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ✅ Run Flask App
 if __name__ == '__main__':
