@@ -3,7 +3,7 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, create_refresh_token
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity, create_refresh_token, verify_jwt_in_request
 from datetime import timedelta, datetime
 from dotenv import load_dotenv
 
@@ -45,6 +45,16 @@ migrate = Migrate(app, db)
 with app.app_context():
     db.create_all()
 
+@app.before_request
+def check_token():
+    """Ensure JWT is included and valid before processing request."""
+    if request.endpoint and request.endpoint not in ['login', 'register']:
+        try:
+            print("🔑 Checking JWT Token:", request.headers.get("Authorization"))
+            verify_jwt_in_request()
+        except Exception as e:
+            print("❌ Invalid Token Error:", str(e))
+            return jsonify({"error": "Invalid token"}), 401
 
 
 @app.route("/register", methods=["POST"])
