@@ -92,7 +92,8 @@ def login():
         print("❌ ERROR: Incorrect password", flush=True)
         return jsonify({"message": "Invalid credentials"}), 401
 
-    access_token = create_access_token(identity=user.id)
+    access_token = create_access_token(identity=str(user.id))  # ✅ Convert user.id to string
+
     print(f"✅ Login successful for user {user.id}", flush=True)  # Log success
 
     return jsonify({"token": access_token}), 200
@@ -101,7 +102,7 @@ def login():
 @app.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh():
-    current_user = get_jwt_identity()
+    current_user = int(get_jwt_identity()) 
     new_access_token = create_access_token(identity=current_user)
     return jsonify({"access_token": new_access_token}), 200
 
@@ -109,7 +110,7 @@ def refresh():
 @app.route('/transactions', methods=['GET'])
 @jwt_required()
 def get_transactions():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity()) 
     print(f"Fetching transactions for user: {user_id}", flush=True)
 
     transactions = Transaction.query.filter_by(user_id=user_id).all()
@@ -131,7 +132,7 @@ def get_transactions():
 @jwt_required()
 def add_transaction():
     print("add transaction")
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity()) 
     data = request.json  # Read JSON data from request
 
     # 🔥 Debugging: Print received data
@@ -176,7 +177,7 @@ def add_transaction():
 @app.route('/transactions/<int:transaction_id>', methods=['DELETE'])
 @jwt_required()
 def delete_transaction(transaction_id):
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity()) 
     
     # Find transaction by ID and user
     transaction = Transaction.query.filter_by(id=transaction_id, user_id=user_id).first()
@@ -193,7 +194,7 @@ def delete_transaction(transaction_id):
 @app.route('/transactions/<int:transaction_id>', methods=['PUT'])
 @jwt_required()
 def update_transaction(transaction_id):
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity()) 
     data = request.json  # Get updated data
 
     # Find transaction
