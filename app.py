@@ -61,18 +61,26 @@ def register():
     return jsonify({"message": "User registered successfully"}), 201
 
 
-@app.route("/login", methods=["POST"])
+@app.route('/login', methods=['POST'])
 def login():
     data = request.json
-    user = User.query.filter_by(username=data["username"]).first()
+    print("🚀 Login Attempt:", data, flush=True)  # Log incoming data
+    
+    user = User.query.filter_by(username=data['username']).first()
 
-    if user and bcrypt.check_password_hash(user.password, data["password"]):
-        access_token = create_access_token(identity=str(user.id))
-        refresh_token = create_refresh_token(identity=str(user.id))  # 🔑 Add Refresh Token
+    if not user:
+        print("❌ ERROR: User not found", flush=True)
+        return jsonify({"message": "Invalid credentials"}), 401
 
-        return jsonify({"access_token": access_token, "refresh_token": refresh_token}), 200
+    if not bcrypt.check_password_hash(user.password, data['password']):
+        print("❌ ERROR: Incorrect password", flush=True)
+        return jsonify({"message": "Invalid credentials"}), 401
 
-    return jsonify({"message": "Invalid credentials"}), 401
+    access_token = create_access_token(identity=user.id)
+    print(f"✅ Login successful for user {user.id}", flush=True)  # Log success
+
+    return jsonify({"token": access_token}), 200
+
 
 @app.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
