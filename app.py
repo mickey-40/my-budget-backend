@@ -42,10 +42,6 @@ class Transaction(db.Model):
 with app.app_context():
     db.create_all()
 
-# ✅ Handle Preflight Requests (OPTIONS)
-# @app.route('/<path:path>', methods=['OPTIONS'])
-# def options_request(path):
-#     return '', 204
 
 @app.route('/register', methods=['POST'])
 def register():
