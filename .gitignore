@@ -1,0 +1,54 @@
+# 📂 Python Virtual Environment
+venv/
+env/
+*.pyc
+*.pyo
+__pycache__/
+.Python
+.python-version
+
+# 📂 Environment Variables (Secrets)
+.env
+.flaskenv
+
+# 📂 Database Files (If using SQLite for local dev)
+*.sqlite3
+*.db
+
+# 📂 Flask Migrations
+migrations/
+instance/
+
+# 📂 Logs & Cache
+*.log
+logs/
+*.pid
+*.swp
+*.swo
+*.swn
+*.bak
+
+# 📂 IDE Specific Files
+.vscode/
+.idea/
+*.iml
+
+# 📂 MacOS System Files
+.DS_Store
+
+# 📂 Pytest & Coverage Reports
+htmlcov/
+.coverage
+*.cover
+.pytest_cache/
+nosetests.xml
+coverage.xml
+
+# 📂 Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# 📂 Compiled C Extensions
+*.so
+
+# 📂 Deployments (if using Docker)
+docker-compose.override.yml
