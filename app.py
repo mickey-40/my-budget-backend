@@ -135,16 +135,56 @@ def add_transaction():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/transactions/<int:transaction_id>', methods=['DELETE'])
+@jwt_required()
+def delete_transaction(transaction_id):
+    user_id = get_jwt_identity()
+    
+    # Find transaction by ID and user
+    transaction = Transaction.query.filter_by(id=transaction_id, user_id=user_id).first()
+    
+    if not transaction:
+        return jsonify({"error": "Transaction not found"}), 404
 
+    # Delete the transaction
+    db.session.delete(transaction)
+    db.session.commit()
 
+    return jsonify({"message": "Transaction deleted successfully"}), 200
 
+@app.route('/transactions/<int:transaction_id>', methods=['PUT'])
+@jwt_required()
+def update_transaction(transaction_id):
+    user_id = get_jwt_identity()
+    data = request.json  # Get updated data
 
+    # Find transaction
+    transaction = Transaction.query.filter_by(id=transaction_id, user_id=user_id).first()
+    
+    if not transaction:
+        return jsonify({"error": "Transaction not found"}), 404
 
+    # Validate fields (allow partial updates)
+    if "type" in data:
+        transaction.type = data["type"]
+    if "category" in data:
+        transaction.category = data["category"]
+    if "amount" in data:
+        try:
+            transaction.amount = float(data["amount"])
+        except ValueError:
+            return jsonify({"error": "Invalid amount"}), 400
+    if "description" in data:
+        transaction.description = data["description"]
+    if "date" in data:
+        try:
+            transaction.date = datetime.strptime(data["date"], "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"error": "Invalid date format"}), 400
 
+    db.session.commit()
 
-
-
-
+    return jsonify({"message": "Transaction updated successfully"}), 200
 
 
 
