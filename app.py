@@ -45,16 +45,22 @@ migrate = Migrate(app, db)
 with app.app_context():
     db.create_all()
 
+from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+
 @app.before_request
 def check_token():
     """Ensure JWT is included and valid before processing request."""
     if request.endpoint and request.endpoint not in ['login', 'register']:
         try:
-            print("🔑 Checking JWT Token:", request.headers.get("Authorization"))
-            verify_jwt_in_request()
+            token = request.headers.get("Authorization")
+            print("🔑 Incoming JWT Token:", token, flush=True)  # Debug JWT token
+
+            verify_jwt_in_request()  # Verify token
+            print("✅ Token verified!", flush=True)
         except Exception as e:
-            print("❌ Invalid Token Error:", str(e))
-            return jsonify({"error": "Invalid token"}), 401
+            print("❌ JWT Verification Failed:", str(e), flush=True)
+            return jsonify({"error": "Invalid or expired token"}), 401
+
 
 
 @app.route("/register", methods=["POST"])
