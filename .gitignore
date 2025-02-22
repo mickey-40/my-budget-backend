@@ -16,7 +16,7 @@ __pycache__/
 *.db
 
 # 📂 Flask Migrations
-migrations/
+
 instance/
 
 # 📂 Logs & Cache
